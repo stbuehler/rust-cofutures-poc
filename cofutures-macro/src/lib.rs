@@ -224,6 +224,12 @@ impl HandleAwait for syn::Expr {
 	}
 }
 
+/// Makes a function async, i.e. convert return type to `impl
+/// Future<Output = ...>`.
+///
+/// Within the function body `await!(...)` is supported to wait for
+/// futures, and `yield` schedules the task again before yielding (i.e.
+/// returning `Pending`).
 #[proc_macro_attribute]
 pub fn coasync(_args: TokenStream, input: TokenStream) -> TokenStream {
 	let mut f = parse_macro_input!(input as ItemFn);
@@ -254,9 +260,10 @@ pub fn coasync(_args: TokenStream, input: TokenStream) -> TokenStream {
 			use core::cell::RefCell;
 			use cofutures_inner::WakerContext;
 
+			// delay creation of generator until we are pinned and have a WakerContext
 			let mut l = move |#waker: WakerContext| {
 				move || {
-					if false { yield }
+					if false { yield }  // make sure to trigger generator creation
 					#oblock
 				}
 			};

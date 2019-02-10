@@ -9,6 +9,8 @@ use core::task::Poll;
 use core::future::Future;
 
 #[doc(hidden)]
+// used for a local variable in the generator which can be used to
+// access the current `&LocalWaker` passed to `Future::poll`.
 pub struct WakerContext(*const *const LocalWaker);
 unsafe impl Send for WakerContext {}
 
@@ -44,11 +46,15 @@ where
 	Running(T),
 }
 
+// struct implenting Future for wrapped generators
+#[doc(hidden)]
 pub struct CoAsync<Output, T, F>
 where
 	T: Generator<Yield = (), Return = Output>,
 	F: FnOnce(WakerContext) -> T,
 {
+	// state needs to be Option so we can temporarily take it.
+	// might end up empty if generator init panics.
 	state: Option<CoAsyncState<Output, T, F>>,
 	last_waker: *const LocalWaker,
 }
@@ -74,9 +80,12 @@ where
 	type Output = Output;
 
 	fn poll(self: Pin<&mut Self>, lw: &LocalWaker) -> Poll<Self::Output> {
-		let this = unsafe { Pin::get_unchecked_mut(self) }; // -> get_mut_unchecked ?
+		let this = unsafe { Pin::get_unchecked_mut(self) }; // -> get_mut_unchecked (got renamed in some nightly version)
 		this.last_waker = lw;
 		if let Some(CoAsyncState::Init(_)) = this.state {
+			// now that we're pinned we can pass the (now stable)
+			// pointer to `&this.last_waker` to the generator, so only
+			// now we actually create the generator object.
 			match this.state.take() {
 				Some(CoAsyncState::Init(init)) => {
 					this.state = Some(CoAsyncState::Running(init(WakerContext(&this.last_waker))));

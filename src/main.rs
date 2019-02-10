@@ -1,4 +1,6 @@
 #![no_std]
+// async_await/await_macro are needed so the compiler accepts the usage
+// of `await!(...)`; we don't actually use it.
 #![feature(generator_trait, generators, futures_api, async_await, await_macro)]
 
 use cofutures_macro::coasync;
