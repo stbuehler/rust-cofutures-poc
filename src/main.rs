@@ -15,6 +15,8 @@ fn foo() -> i32 {
 }
 
 fn main() {
-	// println!() needs std :)
-	let _ = futures_executor::block_on(foo());
+	extern crate std;
+	use std::println;
+
+	println!("{}", futures_executor::block_on(foo()));
 }
