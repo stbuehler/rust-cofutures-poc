@@ -1,0 +1,10 @@
+[package]
+name = "cofutures-poc"
+version = "0.1.0"
+authors = ["Stefan Bühler <stbuehler@web.de>"]
+edition = "2018"
+
+[dependencies]
+cofutures-macro = { path = "cofutures-macro" }
+cofutures-inner = { path = "cofutures-inner" }
+futures-executor-preview = "0.3.0-alpha.12"
