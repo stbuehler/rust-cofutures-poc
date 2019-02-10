@@ -32,9 +32,9 @@ fn build_await(expr: &syn::Expr) -> syn::Expr {
 	syn::parse(quote!{{
 		let mut pinned = #expr;
 		loop {
-			if let core::task::Poll::Ready(x) = #waker.poll(unsafe {
+			if let core::task::Poll::Ready(x) = unsafe { #waker.poll(
 					core::pin::Pin::new_unchecked(&mut pinned)
-			})
+			)}
 			{
 				break x;
 			}
@@ -46,7 +46,7 @@ fn build_await(expr: &syn::Expr) -> syn::Expr {
 fn build_yield() -> syn::Expr {
 	let waker = waker_ident();
 	syn::parse(quote!{{
-		#waker.wake(); // run again ASAP
+		unsafe { #waker.wake(); } // run again ASAP
 		yield
 	}}.into()).unwrap()
 }

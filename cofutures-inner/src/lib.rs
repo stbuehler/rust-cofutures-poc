@@ -7,22 +7,21 @@ use core::pin::Pin;
 use core::task::LocalWaker;
 use core::task::Poll;
 use core::future::Future;
-use core::cell::RefCell;
 
-pub struct WakerContext(*const RefCell<Option<LocalWaker>>);
+#[doc(hidden)]
+pub struct WakerContext(*const *const LocalWaker);
+unsafe impl Send for WakerContext {}
 
 impl WakerContext {
-	pub fn with<F, R>(&self, f: F) -> R
+	pub unsafe fn with<F, R>(&self, f: F) -> R
 	where
 		F: FnOnce(&LocalWaker) -> R,
 	{
-		let ref_waker: &'static RefCell<Option<LocalWaker>> = unsafe { &*self.0 };
-		let ref_waker_borrow = ref_waker.borrow();
-		let waker = Option::as_ref(&*ref_waker_borrow).unwrap();
+		let waker = &**self.0;
 		f(waker)
 	}
 
-	pub fn poll<F, R>(&self, f: Pin<&mut F>) -> Poll<R>
+	pub unsafe fn poll<F, R>(&self, f: Pin<&mut F>) -> Poll<R>
 	where
 		F: Future<Output = R>,
 	{
@@ -31,7 +30,7 @@ impl WakerContext {
 		})
 	}
 
-	pub fn wake(&self) {
+	pub unsafe fn wake(&self) {
 		self.with(|waker| waker.wake());
 	}
 }
@@ -51,7 +50,7 @@ where
 	F: FnOnce(WakerContext) -> T,
 {
 	state: Option<CoAsyncState<Output, T, F>>,
-	last_waker: RefCell<Option<LocalWaker>>,
+	last_waker: *const LocalWaker,
 }
 
 impl<Output, T, F> CoAsync<Output, T, F>
@@ -62,7 +61,7 @@ where
 	pub unsafe fn new(init: F) -> Self {
 		CoAsync {
 			state: Some(CoAsyncState::Init(init)),
-			last_waker: RefCell::new(None),
+			last_waker: core::ptr::null(),
 		}
 	}
 }
@@ -76,7 +75,7 @@ where
 
 	fn poll(self: Pin<&mut Self>, lw: &LocalWaker) -> Poll<Self::Output> {
 		let this = unsafe { Pin::get_unchecked_mut(self) }; // -> get_mut_unchecked ?
-		this.last_waker.replace(Some(lw.clone()));
+		this.last_waker = lw;
 		if let Some(CoAsyncState::Init(_)) = this.state {
 			match this.state.take() {
 				Some(CoAsyncState::Init(init)) => {
