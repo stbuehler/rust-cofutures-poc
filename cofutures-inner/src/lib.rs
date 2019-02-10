@@ -36,22 +36,6 @@ impl WakerContext {
 	}
 }
 
-#[macro_export]
-macro_rules! coawait {
-	($e:expr) => { {
-		let mut pinned = $e;
-		loop {
-			if let $crate::Poll::Ready(x) = magic_waker_nygx1XlkHjNO::poll(unsafe {
-					$crate::pin::Pin::new_unchecked(&mut pinned)
-			})
-			{
-				break x;
-			}
-			yield
-		}
-	} }
-}
-
 enum CoAsyncState<Output, T, F>
 where
 	T: Generator<Yield = (), Return = Output>,
