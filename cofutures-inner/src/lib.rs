@@ -4,20 +4,20 @@
 use core::ops::Generator;
 use core::ops::GeneratorState;
 use core::pin::Pin;
-use core::task::LocalWaker;
+use core::task::Waker;
 use core::task::Poll;
 use core::future::Future;
 
 #[doc(hidden)]
 // used for a local variable in the generator which can be used to
-// access the current `&LocalWaker` passed to `Future::poll`.
-pub struct WakerContext(*const *const LocalWaker);
+// access the current `&Waker` passed to `Future::poll`.
+pub struct WakerContext(*const *const Waker);
 unsafe impl Send for WakerContext {}
 
 impl WakerContext {
 	pub unsafe fn with<F, R>(&self, f: F) -> R
 	where
-		F: FnOnce(&LocalWaker) -> R,
+		F: FnOnce(&Waker) -> R,
 	{
 		let waker = &**self.0;
 		f(waker)
@@ -56,7 +56,7 @@ where
 	// state needs to be Option so we can temporarily take it.
 	// might end up empty if generator init panics.
 	state: Option<CoAsyncState<Output, T, F>>,
-	last_waker: *const LocalWaker,
+	last_waker: *const Waker,
 }
 
 impl<Output, T, F> CoAsync<Output, T, F>
@@ -79,7 +79,7 @@ where
 {
 	type Output = Output;
 
-	fn poll(self: Pin<&mut Self>, lw: &LocalWaker) -> Poll<Self::Output> {
+	fn poll(self: Pin<&mut Self>, lw: &Waker) -> Poll<Self::Output> {
 		let this = unsafe { Pin::get_unchecked_mut(self) }; // -> get_mut_unchecked (got renamed in some nightly version)
 		this.last_waker = lw;
 		if let Some(CoAsyncState::Init(_)) = this.state {
@@ -95,7 +95,7 @@ where
 		}
 		match &mut this.state {
 			Some(CoAsyncState::Running(ref mut running)) => {
-				match unsafe { running.resume() } {
+				match unsafe { Pin::new_unchecked(running).resume() } {
 					GeneratorState::Complete(y) => {
 						Poll::Ready(y)
 					}

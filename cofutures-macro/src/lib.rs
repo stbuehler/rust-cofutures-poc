@@ -256,8 +256,6 @@ pub fn coasync(_args: TokenStream, input: TokenStream) -> TokenStream {
 
 	f.block = match syn::parse(
 		(quote! {{
-			use core::task::LocalWaker;
-			use core::cell::RefCell;
 			use cofutures_inner::WakerContext;
 
 			// delay creation of generator until we are pinned and have a WakerContext

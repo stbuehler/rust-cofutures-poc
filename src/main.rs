@@ -31,10 +31,10 @@ mod sleep {
 	impl core::future::Future for Sleep {
 		type Output = ();
 
-		fn poll(self: core::pin::Pin<&mut Self>, lw: &core::task::LocalWaker) -> core::task::Poll<Self::Output> {
+		fn poll(self: core::pin::Pin<&mut Self>, lw: &core::task::Waker) -> core::task::Poll<Self::Output> {
 			let mut inner_w = self.0.lock().unwrap();
 			let first = inner_w.1.is_none();
-			inner_w.1 = Some(lw.clone().into_waker());
+			inner_w.1 = Some(lw.clone());
 			if first {
 				let handle = self.0.clone();
 				// we need to register with something that wakes the
